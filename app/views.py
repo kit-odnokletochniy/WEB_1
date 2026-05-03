@@ -1,8 +1,9 @@
 from flask import render_template, redirect, url_for
+from flask_login import login_user, logout_user, login_required
 
 from . import app, db
-from .models import News, Category
-from .forms import NewsForm
+from .models import News, Category, User
+from .forms import NewsForm, RegistrationForm, LoginForm
 
 @app.route('/')
 def index():
@@ -35,6 +36,7 @@ def news_in_category(id):
 
 
 @app.route('/add_news', methods=['GET', 'POST'])
+@login_required
 def add_news():
     form = NewsForm()
     categories = Category.query.all()
@@ -49,3 +51,32 @@ def add_news():
     return render_template('add_news.html',
                            form=form,
                            categories=categories)
+
+@app.route('/registration/', methods=['GET', 'POST'])
+def registration():
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        user = User()
+        user.name = form.name.data
+        user.email = form.email.data
+        user.username = form.username.data
+        user.set_password(form.password.data)
+        db.session.add(user)
+        db.session.commit()
+        return redirect(url_for('login'))
+    return render_template('registration.html', form=form)
+
+@app.route('/login/', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter(User.username == form.username.data).first()
+        if user and user.check_password(form.password.data):
+            login_user(user, remember=form.remember.data)
+            return redirect(url_for('index'))
+    return render_template('login.html', form=form)
+
+@app.route('/logout/')
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
